@@ -26,7 +26,7 @@
    "prereqs" : {
       "configure" : {
          "requires" : {
-            "Module::Build::Tiny" : "0.030"
+            "Module::Build::Tiny" : "0.036"
          }
       },
       "develop" : {
@@ -58,9 +58,11 @@
          "web" : "https://github.com/pstuifzand/docker-perl"
       }
    },
-   "version" : "0.002004",
+   "version" : "0.002005",
    "x_contributors" : [
-      "chenryn <rao.chenlin@gmail.com>"
+      "Peter Stuifzand <peter.stuifzand@gmail.com>",
+      "chenryn <rao.chenlin@gmail.com>",
+      "moltar <moltar@moltar.net>"
    ]
 }
 

@@ -1,7 +1,7 @@
 package Net::Docker;
 use strict;
 use 5.010;
-our $VERSION = '0.002004';
+our $VERSION = '0.002005';
 
 use Moo;
 use JSON;
@@ -11,9 +11,10 @@ use LWP::UserAgent;
 use IO::Socket::UNIX;
 use Carp;
 use AnyEvent;
+use AnyEvent::Socket 'tcp_connect';
 use AnyEvent::HTTP;
 
-has address => (is => 'ro', default => 'http:var/run/docker.sock/');
+has address => (is => 'ro', default => sub { $ENV{DOCKER_HOST} || 'http:var/run/docker.sock/' });
 has ua      => (is => 'lazy');
 
 sub _build_ua {
@@ -65,9 +66,17 @@ sub create {
     $options{AttachStdin}  //= \0;
     $options{OpenStdin}  //= \0;
     $options{Tty} //= \1;
+
+    ## workaround for an odd API implementation of
+    ## container naming
+    my %query;
+    if (my $name = delete $options{Name}) {
+        $query{name} = $name;
+    }
+
     my $input = encode_json(\%options);
 
-    my $res = $self->ua->post($self->uri('/containers/create'), 'Content-Type' => 'application/json', Content => $input);
+    my $res = $self->ua->post($self->uri('/containers/create', %query), 'Content-Type' => 'application/json', Content => $input);
 
     my $json = JSON::XS->new;
     my $out = $json->incr_parse($res->decoded_content);
@@ -193,8 +202,6 @@ sub streaming_logs {
     my $input  = delete $options{in_fh};
     my $output = delete $options{out_fh};
 
-    my $uri = $self->uri('/containers/'.$container.'/attach', %options);
-
     my $cv = AnyEvent->condvar;
 
     my $in_hndl;
@@ -255,18 +262,25 @@ sub streaming_logs {
         $hdl;
     };
 
-    my %get_opt = (
+    my %post_opt = (
         want_body_handle => 1,
+        tcp_connect => sub {
+            my ($host, $port, $connect_cb, $prepare_cb) = @_;
+            return tcp_connect('unix/', '/var/run/docker.sock', $connect_cb, $prepare_cb);
+        },
     );
 
     if ( $self->address =~ m!http://! ) {
-        http_request(POST => $uri->as_string, %get_opt, $callback);
+        my $uri = URI->new('http://localhost/v1.7/containers/'.$container.'/attach');
+        $uri->query_form(%options);
+
+        http_request(POST => $uri->as_string, %post_opt, $callback);
     } else {
         if ($uri->path =~ m!^(.+)/(/.+)$!) {
             my ($fake_host, $upath) = ($1, $2);
             $fake_host =~ s!/!&!g;
             my $url = "http://${fake_host}$upath";
-            http_request(POST => $url, %get_opt, tcp_connect => $unix_sock_connect, $callback);
+            http_request(POST => $url, %post_opt, tcp_connect => $unix_sock_connect, $callback);
         }
     }
 
@@ -286,7 +300,13 @@ Net::Docker - Interface to the Docker API
 
     my $api = Net::Docker->new;
 
-    my $id = $api->create(Image => 'ubuntu', Cmd => ['/bin/bash'], AttachStdin => \1, OpenStdin => \1);
+    my $id = $api->create(
+        Image       => 'ubuntu',
+        Cmd         => ['/bin/bash'],
+        AttachStdin => \1,
+        OpenStdin   => \1,
+        Name        => 'my-container',
+    );
 
     say $id;
     $api->start($id);
@@ -308,7 +328,7 @@ Peter Stuifzand E<lt>peter@stuifzand.euE<gt>
 
 =head1 COPYRIGHT
 
-Copyright 2013 - Peter Stuifzand
+Copyright 2013-2014 - Peter Stuifzand
 
 =head1 LICENSE
 
@@ -317,6 +337,6 @@ it under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
-L<http://docker.io>
+L<http://docker.com>
 
 =cut

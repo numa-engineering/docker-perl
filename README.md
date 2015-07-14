@@ -8,7 +8,13 @@ Net::Docker - Interface to the Docker API
 
     my $api = Net::Docker->new;
 
-    my $id = $api->create(Image => 'ubuntu', Cmd => ['/bin/bash'], AttachStdin => \1, OpenStdin => \1);
+    my $id = $api->create(
+        Image       => 'ubuntu',
+        Cmd         => ['/bin/bash'],
+        AttachStdin => \1,
+        OpenStdin   => \1,
+        Name        => 'my-container',
+    );
 
     say $id;
     $api->start($id);
@@ -30,7 +36,7 @@ Peter Stuifzand <peter@stuifzand.eu>
 
 # COPYRIGHT
 
-Copyright 2013 - Peter Stuifzand
+Copyright 2013-2014 - Peter Stuifzand
 
 # LICENSE
 
@@ -39,4 +45,4 @@ it under the same terms as Perl itself.
 
 # SEE ALSO
 
-[http://docker.io](http://docker.io)
+[http://docker.com](http://docker.com)
