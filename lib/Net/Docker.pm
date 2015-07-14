@@ -14,7 +14,7 @@ use AnyEvent;
 use AnyEvent::Socket 'tcp_connect';
 use AnyEvent::HTTP;
 
-has address => (is => 'ro', default => sub { $ENV{DOCKER_HOST} || 'http:var/run/docker.sock/' });
+has address => (is => 'ro', default => sub { $ENV{DOCKER_HOST} || 'http:/var/run/docker.sock/' });
 has ua      => (is => 'lazy');
 
 sub _build_ua {
@@ -270,10 +270,10 @@ sub streaming_logs {
         },
     );
 
-    if ( $self->address =~ m!http://! ) {
-        my $uri = URI->new('http://localhost/v1.7/containers/'.$container.'/attach');
-        $uri->query_form(%options);
+    my $uri = $self->_uri('/containers/'.$container.'/attach');
+    $uri->query_form(%options);
 
+    if ( $self->address =~ m!http://! ) {
         http_request(POST => $uri->as_string, %post_opt, $callback);
     } else {
         if ($uri->path =~ m!^(.+)/(/.+)$!) {
